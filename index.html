@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,6 +7,9 @@
 </head>
 <body>
   <h1>ESP32 Messages</h1>
+
+  <h2>Statut de l'ESP32</h2>
+  <p id="statut" style="font-size:24px; font-weight:bold;">...</p>
 
   <h2>Envoyer à l'ESP32</h2>
   <input id="texte" placeholder="Votre message">
@@ -24,11 +28,25 @@
       });
     }
 
-    // Vérifie toutes les 2 secondes s'il y a un nouveau message de l'ESP32
+    // Toutes les 2 secondes : message reçu de l'ESP32
     setInterval(async () => {
       const reponse = await fetch("/recevoir");
       document.getElementById("recu").innerText = await reponse.text();
     }, 2000);
+
+    // Chaque seconde : statut de l'ESP32
+    setInterval(async () => {
+      const reponse = await fetch("/statut");
+      const statut = await reponse.text();
+      const element = document.getElementById("statut");
+      if (statut === "en ligne") {
+        element.innerText = "🟢 En ligne";
+        element.style.color = "green";
+      } else {
+        element.innerText = "🔴 Hors ligne";
+        element.style.color = "red";
+      }
+    }, 1000);
   </script>
 </body>
 </html>
