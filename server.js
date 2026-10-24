@@ -4,27 +4,44 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname)); // sert index.html
 
-let messageVersESP32 = "";   // message écrit sur la page web
-let messageDeESP32 = "";     // message envoyé par l'ESP32
+let messageVersESP32 = "";
+let messageDeESP32 = "";
 
-// La page web envoie un message à l'ESP32
+// ===== COMPTEUR DE 1 À 10 =====
+let compteur = 0;
+let file = [];   // liste des nombres en attente pour l'ESP32
+
+setInterval(() => {
+  compteur++;
+  if (compteur > 10) compteur = 1;   // après 10, on recommence à 1
+  file.push(compteur);
+  if (file.length > 20) file.shift(); // évite que la liste devienne trop longue
+}, 1000);
+
+// L'ESP32 récupère le prochain nombre de la liste
+app.get("/compteur", (req, res) => {
+  if (file.length > 0) {
+    res.send(String(file.shift()));
+  } else {
+    res.send("");
+  }
+});
+// ===============================
+
 app.post("/envoyer", (req, res) => {
   messageVersESP32 = req.body.message;
   res.send("ok");
 });
 
-// L'ESP32 lit le message de la page web
 app.get("/lire", (req, res) => {
   res.send(messageVersESP32);
 });
 
-// L'ESP32 envoie un message à la page web
 app.post("/depuis-esp32", (req, res) => {
   messageDeESP32 = req.body.message;
   res.send("ok");
 });
 
-// La page web lit le message de l'ESP32
 app.get("/recevoir", (req, res) => {
   res.send(messageDeESP32);
 });
