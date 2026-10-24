@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ESP32 Messages</title>
+</head>
+<body>
+  <h1>ESP32 Messages</h1>
+
+  <h2>Envoyer à l'ESP32</h2>
+  <input id="texte" placeholder="Votre message">
+  <button onclick="envoyer()">Envoyer</button>
+
+  <h2>Reçu de l'ESP32</h2>
+  <p id="recu">...</p>
+
+  <script>
+    function envoyer() {
+      const message = document.getElementById("texte").value;
+      fetch("/envoyer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message })
+      });
+    }
+
+    // Vérifie toutes les 2 secondes s'il y a un nouveau message de l'ESP32
+    setInterval(async () => {
+      const reponse = await fetch("/recevoir");
+      document.getElementById("recu").innerText = await reponse.text();
+    }, 2000);
+  </script>
+</body>
+</html>
