@@ -2,6 +2,8 @@ const express = require("express");
 const crypto = require("crypto");
 const app = express();
 
+const EMAIL_PROPRIETAIRE = "admin@gmail.com";   // <-- METTEZ ICI L'E-MAIL DE L'ADMIN
+
 app.use(express.json());
 app.use(express.static(__dirname)); // sert index.html
 
@@ -40,14 +42,14 @@ let derniereDemande = {};
 let demandesHeure = 0;
 setInterval(() => { demandesHeure = 0; }, 3600000);
 
-// Le visiteur demande un code : le serveur vous envoie un e-mail
+// Le visiteur demande un code : le serveur envoie un e-mail à l'admin
 app.post("/demander-code", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
 
   if (!email.includes("@") || email.length > 100) {
     return res.status(400).send("email invalide");
   }
-  if (!SECRET || !process.env.RESEND_API_KEY || !process.env.EMAIL_PROPRIETAIRE) {
+  if (!SECRET || !process.env.RESEND_API_KEY) {
     return res.status(500).send("serveur non configure");
   }
   if (demandesHeure >= 20 || Date.now() - (derniereDemande[email] || 0) < 60000) {
@@ -65,7 +67,7 @@ app.post("/demander-code", async (req, res) => {
       },
       body: JSON.stringify({
         from: "Activation <onboarding@resend.dev>",
-        to: process.env.EMAIL_PROPRIETAIRE,
+        to: EMAIL_PROPRIETAIRE,
         subject: "Demande d'activation : " + email,
         text: "Demande d'activation de : " + email +
               "\n\nCode d'activation : " + codePour(email) +
