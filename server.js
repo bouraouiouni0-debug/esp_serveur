@@ -2,7 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const app = express();
 
-const EMAIL_PROPRIETAIRE = "admin@gmail.com";   // <-- METTEZ ICI L'E-MAIL DE L'ADMIN
+const EMAIL_PROPRIETAIRE = "ouni_bouraoui@yahoo.fr";   // <-- METTEZ ICI L'E-MAIL DE L'ADMIN
 
 app.use(express.json());
 app.use(express.static(__dirname)); // sert index.html
