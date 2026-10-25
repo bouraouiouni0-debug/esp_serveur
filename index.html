@@ -1,42 +1,157 @@
 
-<!DOCTYPE html>
+
+   <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <title>ESP32 Messages</title>
 </head>
 <body>
-  <h1>ESP32 Messages</h1>
 
-  <h2>Statut de l'ESP32</h2>
-  <p id="statut" style="font-size:24px; font-weight:bold;">...</p>
+  <!-- PARTIE 1 : activation -->
+  <div id="activation" style="display:none;">
+    <h1>Activation</h1>
+    <p>Entrez votre e-mail :</p>
+    <input id="emailSaisie" type="email" placeholder="votre@email.com">
+    <button onclick="demanderCode()">Activation</button>
+    <button onclick="afficherEtapeCode()">J'ai déjà un code</button>
+    <p id="info"></p>
 
-  <h2>Envoyer à l'ESP32</h2>
-  <input id="texte" placeholder="Votre message">
-  <button onclick="envoyer()">Envoyer</button>
+    <div id="etapeCode" style="display:none;">
+      <p>Entrez le code que vous avez reçu :</p>
+      <input id="codeSaisi" placeholder="Code">
+      <button onclick="valider()">Valider</button>
+    </div>
+  </div>
 
-  <h2>Reçu de l'ESP32</h2>
-  <p id="recu">...</p>
+  <!-- PARTIE 2 : le site -->
+  <div id="site" style="display:none;">
+    <h1>ESP32 Messages</h1>
+
+    <h2>Statut de l'ESP32</h2>
+    <p id="statut" style="font-size:24px; font-weight:bold;">...</p>
+
+    <h2>Envoyer à l'ESP32</h2>
+    <input id="texte" placeholder="Votre message">
+    <button onclick="envoyer()">Envoyer</button>
+
+    <h2>Reçu de l'ESP32</h2>
+    <p id="recu">...</p>
+
+    <p><button onclick="deconnecter()">Se déconnecter</button></p>
+  </div>
 
   <script>
-    function envoyer() {
-      const message = document.getElementById("texte").value;
-      fetch("/envoyer", {
+    // L'e-mail et le code sont mémorisés dans le navigateur
+    let email = localStorage.getItem("email") || "";
+    let code = localStorage.getItem("code") || "";
+
+    function entetes() {
+      return { "Content-Type": "application/json", "x-email": email, "x-code": code };
+    }
+
+    function afficherSite() {
+      document.getElementById("activation").style.display = "none";
+      document.getElementById("site").style.display = "block";
+    }
+
+    function afficherActivation() {
+      document.getElementById("site").style.display = "none";
+      document.getElementById("activation").style.display = "block";
+    }
+
+    function afficherEtapeCode() {
+      document.getElementById("etapeCode").style.display = "block";
+    }
+
+    function message(texte, couleur) {
+      const info = document.getElementById("info");
+      info.innerText = texte;
+      info.style.color = couleur;
+    }
+
+    // Clic sur "Activation" : le serveur m'envoie un e-mail avec le code
+    async function demanderCode() {
+      const saisie = document.getElementById("emailSaisie").value.trim();
+      message("Envoi en cours...", "black");
+      const reponse = await fetch("/demander-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: message })
+        body: JSON.stringify({ email: saisie })
+      });
+      if (reponse.ok) {
+        message("Demande envoyée. Vous recevrez un code de ma part.", "green");
+        afficherEtapeCode();
+      } else if (reponse.status === 429) {
+        message("Trop de demandes. Réessayez dans une minute.", "red");
+      } else if (reponse.status === 400) {
+        message("E-mail invalide.", "red");
+      } else {
+        message("Erreur. Réessayez plus tard.", "red");
+      }
+    }
+
+    // Clic sur "Valider" : on teste e-mail + code
+    async function valider() {
+      const emailSaisi = document.getElementById("emailSaisie").value.trim();
+      const codeSaisi = document.getElementById("codeSaisi").value.trim().toUpperCase();
+      const reponse = await fetch("/verifier", {
+        headers: { "x-email": emailSaisi, "x-code": codeSaisi }
+      });
+      if (reponse.ok) {
+        email = emailSaisi;
+        code = codeSaisi;
+        localStorage.setItem("email", email);
+        localStorage.setItem("code", code);
+        afficherSite();
+      } else {
+        message("Code invalide.", "red");
+      }
+    }
+
+    function deconnecter() {
+      email = "";
+      code = "";
+      localStorage.removeItem("email");
+      localStorage.removeItem("code");
+      afficherActivation();
+    }
+
+    // Au chargement : on vérifie ce qui est mémorisé
+    async function demarrer() {
+      if (email && code) {
+        const reponse = await fetch("/verifier", { headers: { "x-email": email, "x-code": code } });
+        if (reponse.ok) {
+          afficherSite();
+          return;
+        }
+      }
+      deconnecter();
+    }
+    demarrer();
+
+    function envoyer() {
+      const texte = document.getElementById("texte").value;
+      fetch("/envoyer", {
+        method: "POST",
+        headers: entetes(),
+        body: JSON.stringify({ message: texte })
       });
     }
 
     // Toutes les 2 secondes : message reçu de l'ESP32
     setInterval(async () => {
-      const reponse = await fetch("/recevoir");
+      if (!code) return;
+      const reponse = await fetch("/recevoir", { headers: entetes() });
+      if (reponse.status === 401) { deconnecter(); return; }
       document.getElementById("recu").innerText = await reponse.text();
     }, 2000);
 
     // Chaque seconde : statut de l'ESP32
     setInterval(async () => {
-      const reponse = await fetch("/statut");
+      if (!code) return;
+      const reponse = await fetch("/statut", { headers: entetes() });
+      if (reponse.status === 401) { deconnecter(); return; }
       const statut = await reponse.text();
       const element = document.getElementById("statut");
       if (statut === "en ligne") {
